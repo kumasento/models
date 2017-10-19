@@ -90,3 +90,11 @@ ENV/
 
 # PyCharm
 .idea/
+
+# data
+*.ckpt
+*.pb
+*.tar.gz
+*_log/
+
+bazel-*
