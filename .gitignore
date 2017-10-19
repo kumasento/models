@@ -96,3 +96,5 @@ ENV/
 *.pb
 *.tar.gz
 *_log/
+
+bazel-*
