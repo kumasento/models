@@ -98,3 +98,5 @@ ENV/
 *_log/
 
 bazel-*
+
+archive
