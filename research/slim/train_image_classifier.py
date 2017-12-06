@@ -379,6 +379,16 @@ def _get_variables_to_train():
   return variables_to_train
 
 
+def train_step(sess, train_op, global_step, train_step_kwargs):
+    # run the official train_step function
+    total_loss, should_stop = \
+            slim.learning.train_step(
+                    sess, train_op, global_step,
+                    train_step_kwargs)
+
+    return total_loss, should_stop
+
+
 def main(_):
   if not FLAGS.dataset_dir:
     raise ValueError('You must supply the dataset directory with --dataset_dir')
@@ -562,6 +572,7 @@ def main(_):
         master=FLAGS.master,
         is_chief=(FLAGS.task == 0),
         init_fn=_get_init_fn(),
+        train_step_fn=train_step,
         summary_op=summary_op,
         number_of_steps=FLAGS.max_number_of_steps,
         log_every_n_steps=FLAGS.log_every_n_steps,
