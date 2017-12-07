@@ -217,6 +217,14 @@ tf.app.flags.DEFINE_boolean(
     'ignore_missing_vars', False,
     'When restoring a checkpoint would ignore missing variables.')
 
+#####################
+# DWS Testing Flags #
+#####################
+
+tf.app.flags.DEFINE_integer(
+    'num_separable_layers', 0,
+    'The number of depthwise separable layers in the model')
+
 FLAGS = tf.app.flags.FLAGS
 
 
@@ -412,7 +420,8 @@ def main(_):
         FLAGS.model_name,
         num_classes=(dataset.num_classes - FLAGS.labels_offset),
         weight_decay=FLAGS.weight_decay,
-        is_training=True)
+        is_training=True,
+        num_separable_layers=FLAGS.num_separable_layers)
 
     #####################################
     # Select the preprocessing function #

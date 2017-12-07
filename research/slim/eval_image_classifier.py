@@ -79,6 +79,10 @@ tf.app.flags.DEFINE_float(
 tf.app.flags.DEFINE_integer(
     'eval_image_size', None, 'Eval image size')
 
+tf.app.flags.DEFINE_integer(
+    'num_separable_layers', 0,
+    'The number of depthwise separable layers in the model')
+
 FLAGS = tf.app.flags.FLAGS
 
 
@@ -102,7 +106,8 @@ def main(_):
     network_fn = nets_factory.get_network_fn(
         FLAGS.model_name,
         num_classes=(dataset.num_classes - FLAGS.labels_offset),
-        is_training=False)
+        is_training=False,
+        num_separable_layers=FLAGS.num_separable_layers)
 
     ##############################################################
     # Create a dataset provider that loads data from the dataset #
