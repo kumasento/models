@@ -23,6 +23,7 @@ import random
 
 
 import tensorflow as tf
+from six.moves import xrange
 from tensorflow.core.framework.summary_pb2 import Summary
 from tensorflow.python.framework import errors
 from tensorflow.python.platform import gfile
@@ -152,8 +153,9 @@ def run_training(sess, trainers, annotator, evaluator, pretrain_steps,
       for label, metric in summaries.iteritems():
         write_summary(summary_writer, label, metric, actual_step + step)
       eval_metric = summaries['eval_metric']
+      tf.logging.info('Current eval metric: %.2f', eval_metric)
       if best_eval_metric < eval_metric:
-        tf.logging.info('Updating best eval to %.2f%%, saving checkpoint.',
+        tf.logging.info('Updating best eval to %.2f, saving checkpoint.',
                         eval_metric)
         best_eval_metric = eval_metric
         saver.save(sess, checkpoint_filename)
