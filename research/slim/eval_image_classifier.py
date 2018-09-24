@@ -27,36 +27,39 @@ from preprocessing import preprocessing_factory
 
 slim = tf.contrib.slim
 
-tf.app.flags.DEFINE_integer(
-    'batch_size', 100, 'The number of samples in each batch.')
+tf.app.flags.DEFINE_integer('batch_size', 100,
+                            'The number of samples in each batch.')
 
 tf.app.flags.DEFINE_integer(
     'max_num_batches', None,
     'Max number of batches to evaluate by default use all.')
 
-tf.app.flags.DEFINE_string(
-    'master', '', 'The address of the TensorFlow master to use.')
+tf.app.flags.DEFINE_boolean('eval_loop', False, 'Evaluate iteratively')
+tf.app.flags.DEFINE_integer('eval_interval_secs', 60, 'Evaluation iteration intervals')
+
+tf.app.flags.DEFINE_string('master', '',
+                           'The address of the TensorFlow master to use.')
 
 tf.app.flags.DEFINE_string(
     'checkpoint_path', '/tmp/tfmodel/',
     'The directory where the model was written to or an absolute path to a '
     'checkpoint file.')
 
-tf.app.flags.DEFINE_string(
-    'eval_dir', '/tmp/tfmodel/', 'Directory where the results are saved to.')
+tf.app.flags.DEFINE_string('eval_dir', '/tmp/tfmodel/',
+                           'Directory where the results are saved to.')
 
 tf.app.flags.DEFINE_integer(
     'num_preprocessing_threads', 4,
     'The number of threads used to create the batches.')
 
-tf.app.flags.DEFINE_string(
-    'dataset_name', 'imagenet', 'The name of the dataset to load.')
+tf.app.flags.DEFINE_string('dataset_name', 'imagenet',
+                           'The name of the dataset to load.')
 
-tf.app.flags.DEFINE_string(
-    'dataset_split_name', 'test', 'The name of the train/test split.')
+tf.app.flags.DEFINE_string('dataset_split_name', 'test',
+                           'The name of the train/test split.')
 
-tf.app.flags.DEFINE_string(
-    'dataset_dir', None, 'The directory where the dataset files are stored.')
+tf.app.flags.DEFINE_string('dataset_dir', None,
+                           'The directory where the dataset files are stored.')
 
 tf.app.flags.DEFINE_integer(
     'labels_offset', 0,
@@ -64,20 +67,18 @@ tf.app.flags.DEFINE_integer(
     'evaluate the VGG and ResNet architectures which do not use a background '
     'class for the ImageNet dataset.')
 
-tf.app.flags.DEFINE_string(
-    'model_name', 'inception_v3', 'The name of the architecture to evaluate.')
+tf.app.flags.DEFINE_string('model_name', 'inception_v3',
+                           'The name of the architecture to evaluate.')
 
 tf.app.flags.DEFINE_string(
     'preprocessing_name', None, 'The name of the preprocessing to use. If left '
     'as `None`, then the model_name flag is used.')
 
 tf.app.flags.DEFINE_float(
-    'moving_average_decay', None,
-    'The decay to use for the moving average.'
+    'moving_average_decay', None, 'The decay to use for the moving average.'
     'If left as None, then moving averages are not used.')
 
-tf.app.flags.DEFINE_integer(
-    'eval_image_size', None, 'Eval image size')
+tf.app.flags.DEFINE_integer('eval_image_size', None, 'Eval image size')
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -120,18 +121,16 @@ def main(_):
     #####################################
     preprocessing_name = FLAGS.preprocessing_name or FLAGS.model_name
     image_preprocessing_fn = preprocessing_factory.get_preprocessing(
-        preprocessing_name,
-        is_training=False)
+        preprocessing_name, is_training=False)
 
     eval_image_size = FLAGS.eval_image_size or network_fn.default_image_size
 
     image = image_preprocessing_fn(image, eval_image_size, eval_image_size)
 
-    images, labels = tf.train.batch(
-        [image, label],
-        batch_size=FLAGS.batch_size,
-        num_threads=FLAGS.num_preprocessing_threads,
-        capacity=5 * FLAGS.batch_size)
+    images, labels = tf.train.batch([image, label],
+                                    batch_size=FLAGS.batch_size,
+                                    num_threads=FLAGS.num_preprocessing_threads,
+                                    capacity=5 * FLAGS.batch_size)
 
     ####################
     # Define the model #
@@ -152,9 +151,10 @@ def main(_):
 
     # Define the metrics:
     names_to_values, names_to_updates = slim.metrics.aggregate_metric_map({
-        'Accuracy': slim.metrics.streaming_accuracy(predictions, labels),
-        'Recall_5': slim.metrics.streaming_recall_at_k(
-            logits, labels, 5),
+        'Accuracy':
+        slim.metrics.streaming_accuracy(predictions, labels),
+        'Recall_5':
+        slim.metrics.streaming_recall_at_k(logits, labels, 5),
     })
 
     # Print the summaries to screen.
@@ -178,13 +178,23 @@ def main(_):
 
     tf.logging.info('Evaluating %s' % checkpoint_path)
 
-    slim.evaluation.evaluate_once(
-        master=FLAGS.master,
-        checkpoint_path=checkpoint_path,
-        logdir=FLAGS.eval_dir,
-        num_evals=num_batches,
-        eval_op=list(names_to_updates.values()),
-        variables_to_restore=variables_to_restore)
+    if FLAGS.eval_loop:
+      slim.evaluation.evaluation_loop(
+          FLAGS.master,
+          FLAGS.checkpoint_path,
+          FLAGS.eval_dir,
+          num_evals=num_batches,
+          eval_op=list(names_to_updates.values()),
+          eval_interval_secs=FLAGS.eval_interval_secs,
+          variables_to_restore=variables_to_restore)
+    else:
+      slim.evaluation.evaluate_once(
+          master=FLAGS.master,
+          checkpoint_path=checkpoint_path,
+          logdir=FLAGS.eval_dir,
+          num_evals=num_batches,
+          eval_op=list(names_to_updates.values()),
+          variables_to_restore=variables_to_restore)
 
 
 if __name__ == '__main__':
