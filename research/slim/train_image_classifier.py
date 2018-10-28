@@ -405,7 +405,7 @@ def main(_):
 
     # Create global_step
     with tf.device(deploy_config.variables_device()):
-      global_step = slim.create_global_step()
+      global_step = tf.train.create_global_step()
 
     ######################
     # Select the dataset #
@@ -468,12 +468,12 @@ def main(_):
       # Specify the loss function #
       #############################
       if 'AuxLogits' in end_points:
-        slim.losses.softmax_cross_entropy(
-            end_points['AuxLogits'], labels,
+        tf.losses.softmax_cross_entropy(
+            labels, end_points['AuxLogits'],
             label_smoothing=FLAGS.label_smoothing, weights=0.4,
             scope='aux_loss')
-      slim.losses.softmax_cross_entropy(
-          logits, labels, label_smoothing=FLAGS.label_smoothing, weights=1.0)
+      tf.losses.softmax_cross_entropy(
+          labels, logits, label_smoothing=FLAGS.label_smoothing, weights=1.0)
       return end_points
 
     # Gather initial summaries.
