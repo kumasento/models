@@ -11,6 +11,7 @@ Date: 27/10/2018
 
 import functools
 
+from tensorflow.contrib import slim
 from tensorflow.contrib.framework.python.ops import add_arg_scope
 from tensorflow.contrib.framework.python.ops import variables
 from tensorflow.contrib.layers.python.layers import initializers
@@ -22,7 +23,8 @@ from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import variable_scope
 from tensorflow.python.ops import nn
 
-from tensorflow.contrib import slim
+
+from .config_pb2 import NetworkConfig, LayerConfig
 
 
 @add_arg_scope
@@ -44,9 +46,10 @@ def masked_conv2d(inputs,
                   variables_collections=None,
                   outputs_collections=None,
                   trainable=True,
-                   cfg=None,
+                  cfg=None,
                   scope=None):
   """ This conv2d supports weights masking """
+  assert isinstance(cfg, LayerConfig)
 
   with variable_scope.variable_scope(
           scope, 'Conv2D', [inputs], reuse=reuse) as sc:
@@ -140,6 +143,8 @@ def grouped_conv2d(inputs,
                    trainable=True,
                    cfg=None,
                    scope=None):
+  assert isinstance(cfg, LayerConfig)
+
   with variable_scope.variable_scope(
           scope, 'GroupedConv2D', [inputs], reuse=reuse) as sc:
     inputs = ops.convert_to_tensor(inputs)
@@ -249,9 +254,11 @@ def conv2d_fn(cfg=None):
   @functools.wraps(func)
   def conv2d_fn(*args, **kwargs):
     if cfg is not None:
+      assert isinstance(cfg, LayerConfig)
+
       kwargs['cfg'] = cfg
       return func(*args, **kwargs)
-    
+
     # we don't update kwargs in this case
     return func(*args, **kwargs)
 

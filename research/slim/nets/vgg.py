@@ -109,7 +109,7 @@ def vgg_a(inputs,
     with slim.arg_scope([conv2d_fn(), slim.max_pool2d],
                         outputs_collections=end_points_collection):
       net = slim.repeat(inputs, 1, conv2d_fn(
-          ), 64, [3, 3], scope='conv1')
+      ), 64, [3, 3], scope='conv1')
       net = slim.max_pool2d(net, [2, 2], scope='pool1')
       net = slim.repeat(net, 1, conv2d_fn(), 128, [3, 3], scope='conv2')
       net = slim.max_pool2d(net, [2, 2], scope='pool2')
@@ -135,9 +135,9 @@ def vgg_a(inputs,
         net = slim.dropout(net, dropout_keep_prob, is_training=is_training,
                            scope='dropout7')
         net = conv2d_fn()(net, num_classes, [1, 1],
-                                  activation_fn=None,
-                                  normalizer_fn=None,
-                                  scope='fc8')
+                          activation_fn=None,
+                          normalizer_fn=None,
+                          scope='fc8')
         if spatial_squeeze:
           net = tf.squeeze(net, [1, 2], name='fc8/squeezed')
         end_points[sc.name + '/fc8'] = net
@@ -229,9 +229,9 @@ def vgg_16(inputs,
         net = slim.dropout(net, dropout_keep_prob, is_training=is_training,
                            scope='dropout7')
         net = conv2d_fn()(net, num_classes, [1, 1],
-                                  activation_fn=None,
-                                  normalizer_fn=None,
-                                  scope='fc8')
+                          activation_fn=None,
+                          normalizer_fn=None,
+                          scope='fc8')
         if spatial_squeeze:
           net = tf.squeeze(net, [1, 2], name='fc8/squeezed')
         end_points[sc.name + '/fc8'] = net
@@ -312,9 +312,9 @@ def vgg_19(inputs,
         net = slim.dropout(net, dropout_keep_prob, is_training=is_training,
                            scope='dropout7')
         net = conv2d_fn()(net, num_classes, [1, 1],
-                                  activation_fn=None,
-                                  normalizer_fn=None,
-                                  scope='fc8')
+                          activation_fn=None,
+                          normalizer_fn=None,
+                          scope='fc8')
         if spatial_squeeze:
           net = tf.squeeze(net, [1, 2], name='fc8/squeezed')
         end_points[sc.name + '/fc8'] = net
