@@ -41,9 +41,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import functools
 import tensorflow as tf
 
-from .ops_factory import conv2d_fn
+from dokei.reg.layer_config import get_layer_fn_map
 
 slim = tf.contrib.slim
 
@@ -154,7 +155,8 @@ def vgg_16(inputs,
            spatial_squeeze=True,
            scope='vgg_16',
            fc_conv_padding='VALID',
-           global_pool=False):
+           global_pool=False,
+           layer_cfg_map=None):
   """Oxford Net VGG 16-Layers version D Example.
 
   Note: All the fully_connected layers have been transformed to conv2d layers.
@@ -185,41 +187,58 @@ def vgg_16(inputs,
       or the input to the logits layer (if num_classes is 0 or None).
     end_points: a dict of tensors with intermediate activations.
   """
+  # Say something about the received
+  if layer_cfg_map is not None:
+    print('Recevied layer_cfg: {}'.format(layer_cfg_map))
+
+  layers = ['conv1/conv1_1', 'conv1/conv1_2', 'conv2/conv2_1', 'conv2/conv2_2', 'conv3/conv3_1', 'conv3/conv3_2', 'conv3/conv3_3',
+            'conv4/conv4_1', 'conv4/conv4_2', 'conv4/conv4_3', 'conv5/conv5_1', 'conv5/conv5_2', 'conv5/conv5_3', 'fc6', 'fc7', 'fc8']
+  layer_fn_map = get_layer_fn_map(layer_cfg_map)
+  # patch the layer_fn map
+
   with tf.variable_scope(scope, 'vgg_16', [inputs]) as sc:
     end_points_collection = sc.original_name_scope + '_end_points'
+  
     # Collect outputs for conv2d, fully_connected and max_pool2d.
     with slim.arg_scope([slim.conv2d, slim.fully_connected, slim.max_pool2d],
                         outputs_collections=end_points_collection):
-      net = slim.conv2d(inputs, 64, [3, 3], scope='conv1/conv1_1')
-      net = slim.conv2d(net, 64, [3, 3], scope='conv1/conv1_2')
+
+      # should initialise within the scope
+      for scope in layers:
+        if scope not in layer_fn_map:
+          print('Initialise scope {} with default slim.conv2d'.format(scope))
+          layer_fn_map[scope] = functools.partial(
+              slim.conv2d, scope=scope)
+
+      net = layer_fn_map['conv1/conv1_1'](inputs, 64, [3, 3])
+      net = layer_fn_map['conv1/conv1_2'](net, 64, [3, 3])
       net = slim.max_pool2d(net, [2, 2], scope='pool1')
 
-      # net = slim.repeat(net, 2, slim.conv2d, 128, [3, 3], scope='conv2')
-      net = slim.conv2d(net, 128, [3, 3], scope='conv2/conv2_1')
-      net = slim.conv2d(net, 128, [3, 3], scope='conv2/conv2_2')
+      net = layer_fn_map['conv2/conv2_1'](net, 128, [3, 3])
+      net = layer_fn_map['conv2/conv2_2'](net, 128, [3, 3])
       net = slim.max_pool2d(net, [2, 2], scope='pool2')
 
-      net = slim.conv2d(net, 256, [3, 3], scope='conv3/conv3_1')
-      net = slim.conv2d(net, 256, [3, 3], scope='conv3/conv3_2')
-      net = slim.conv2d(net, 256, [3, 3], scope='conv3/conv3_3')
+      net = layer_fn_map['conv3/conv3_1'](net, 256, [3, 3])
+      net = layer_fn_map['conv3/conv3_2'](net, 256, [3, 3])
+      net = layer_fn_map['conv3/conv3_3'](net, 256, [3, 3])
       net = slim.max_pool2d(net, [2, 2], scope='pool3')
 
-      net = slim.conv2d(net, 512, [3, 3], scope='conv4/conv4_1')
-      net = slim.conv2d(net, 512, [3, 3], scope='conv4/conv4_2')
-      net = slim.conv2d(net, 512, [3, 3], scope='conv4/conv4_3')
+      net = layer_fn_map['conv4/conv4_1'](net, 512, [3, 3])
+      net = layer_fn_map['conv4/conv4_2'](net, 512, [3, 3])
+      net = layer_fn_map['conv4/conv4_3'](net, 512, [3, 3])
       net = slim.max_pool2d(net, [2, 2], scope='pool4')
 
-      net = slim.conv2d(net, 512, [3, 3], scope='conv5/conv5_1')
-      net = slim.conv2d(net, 512, [3, 3], scope='conv5/conv5_2')
-      net = slim.conv2d(net, 512, [3, 3], scope='conv5/conv5_3')
+      net = layer_fn_map['conv5/conv5_1'](net, 512, [3, 3])
+      net = layer_fn_map['conv5/conv5_2'](net, 512, [3, 3])
+      net = layer_fn_map['conv5/conv5_3'](net, 512, [3, 3])
       net = slim.max_pool2d(net, [2, 2], scope='pool5')
 
       # Use conv2d instead of fully_connected layers.
-      net = slim.conv2d(
-          net, 4096, [7, 7], padding=fc_conv_padding, scope='fc6')
+      net = layer_fn_map['fc6'](
+          net, 4096, [7, 7], padding=fc_conv_padding)
       net = slim.dropout(net, dropout_keep_prob, is_training=is_training,
                          scope='dropout6')
-      net = slim.conv2d(net, 4096, [1, 1], scope='fc7')
+      net = layer_fn_map['fc7'](net, 4096, [1, 1])
       # Convert end_points_collection into a end_point dict.
       end_points = slim.utils.convert_collection_to_dict(end_points_collection)
       if global_pool:
@@ -228,10 +247,10 @@ def vgg_16(inputs,
       if num_classes:
         net = slim.dropout(net, dropout_keep_prob, is_training=is_training,
                            scope='dropout7')
-        net = slim.conv2d(net, num_classes, [1, 1],
-                          activation_fn=None,
-                          normalizer_fn=None,
-                          scope='fc8')
+        net = layer_fn_map['fc8'](net, num_classes, [1, 1],
+                                  activation_fn=None,
+                                  normalizer_fn=None,
+                                  scope='fc8')
         if spatial_squeeze:
           net = tf.squeeze(net, [1, 2], name='fc8/squeezed')
         end_points[sc.name + '/fc8'] = net

@@ -23,10 +23,12 @@ from datasets import flowers
 from datasets import imagenet
 from datasets import mnist
 from datasets import birds
+from datasets import flowers102
 
 datasets_map = {
     'cifar10': cifar10,
     'flowers': flowers,
+    'flowers102': flowers102,
     'imagenet': imagenet,
     'mnist': mnist,
     'birds': birds,

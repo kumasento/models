@@ -122,9 +122,7 @@ def _get_filenames_and_classes(dataset_dir):
 
   # labels, associate with a specific file
   labels = scipy.io.loadmat(os.path.join(
-      dataset_dir, 'labels.mat'))
-  labels = labels['labels'][0]
-  assert 0 not in labels
+      dataset_dir, 'labels.mat'))['labels'][0]
   labels -= 1  # start from 0
 
   file_names = []
@@ -133,10 +131,9 @@ def _get_filenames_and_classes(dataset_dir):
     path = os.path.join(images_root, file_name)
     file_names.append(path)
 
-  file_names = sorted(file_names)
   file_names_to_labels = {file_names[i]: labels[i] for i in range(len(labels))}
 
-  return file_names, file_names_to_labels
+  return sorted(file_names), file_names_to_labels
 
 
 def _get_dataset_filename(dataset_dir, split_name, shard_id):
@@ -236,10 +233,6 @@ def run(dataset_dir):
   class_names = CLASS_NAMES
   class_names_to_ids = dict(zip(class_names, range(len(class_names))))
 
-  for i in range(10):
-    label = file_names_to_labels[file_names[i]]
-    print(file_names[i], label, class_names[label])
-
   # Divide into train and test:
   # random.seed(_RANDOM_SEED)
   # random.shuffle(photo_filenames)
@@ -259,14 +252,12 @@ def run(dataset_dir):
     valid_file_names.append(file_names[i-1])
 
   # First, convert the training and validation sets.
-  _convert_dataset('train', train_file_names, class_names_to_ids,
-                   file_names_to_labels, dataset_dir)
-  _convert_dataset('validation', valid_file_names, class_names_to_ids,
-                   file_names_to_labels, dataset_dir)
+  _convert_dataset('train', train_file_names, class_names_to_ids, dataset_dir)
+  _convert_dataset('valid', valid_file_names, class_names_to_ids, dataset_dir)
 
   # # Finally, write the labels file:
   labels_to_class_names = dict(zip(range(len(class_names)), class_names))
   dataset_utils.write_label_file(labels_to_class_names, dataset_dir)
 
-  # _clean_up_temporary_files(dataset_dir)
+  _clean_up_temporary_files(dataset_dir)
   print('\nFinished converting the Flowers-102 dataset!')
