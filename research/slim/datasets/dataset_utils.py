@@ -77,7 +77,7 @@ def image_to_tfexample(image_data, image_format, height, width, class_id):
   }))
 
 
-def download_and_uncompress_tarball(tarball_url, dataset_dir):
+def download_and_uncompress_tarball(tarball_url, dataset_dir, gzip=True):
   """Downloads the `tarball_url` and uncompresses it locally.
 
   Args:
@@ -91,11 +91,20 @@ def download_and_uncompress_tarball(tarball_url, dataset_dir):
     sys.stdout.write('\r>> Downloading %s %.1f%%' % (
         filename, float(count * block_size) / float(total_size) * 100.0))
     sys.stdout.flush()
-  filepath, _ = urllib.request.urlretrieve(tarball_url, filepath, _progress)
-  print()
-  statinfo = os.stat(filepath)
-  print('Successfully downloaded', filename, statinfo.st_size, 'bytes.')
-  tarfile.open(filepath, 'r:gz').extractall(dataset_dir)
+
+  if not tf.gfile.Exists(filepath):
+    filepath, _ = urllib.request.urlretrieve(tarball_url, filepath, _progress)
+    print()
+    statinfo = os.stat(filepath)
+    print('Successfully downloaded', filename, statinfo.st_size, 'bytes.')
+  
+  print('Uncompressing file {} ...'.format(filepath))
+  tarfile.open(filepath, 'r:*').extractall(dataset_dir)
+
+
+def download_file(url, file_path):
+  """ Download a file from the given URL to a path """
+  urllib.request.urlretrieve(url, file_path)
 
 
 def write_label_file(labels_to_class_names, dataset_dir,
