@@ -20,6 +20,7 @@ from __future__ import print_function
 import os
 import sys
 import tarfile
+import zipfile
 
 from six.moves import urllib
 import tensorflow as tf
@@ -101,6 +102,31 @@ def download_and_uncompress_tarball(tarball_url, dataset_dir, gzip=True):
   print('Uncompressing file {} ...'.format(filepath))
   tarfile.open(filepath, 'r:*').extractall(dataset_dir)
 
+def download_and_uncompress_zip(zip_url, dataset_dir, gzip=True):
+  """Downloads the `tarball_url` and uncompresses it locally.
+
+  Args:
+    tarball_url: The URL of a tarball file.
+    dataset_dir: The directory where the temporary files are stored.
+  """
+  filename = zip_url.split('/')[-1]
+  filepath = os.path.join(dataset_dir, filename)
+
+  def _progress(count, block_size, total_size):
+    sys.stdout.write('\r>> Downloading %s %.1f%%' % (
+        filename, float(count * block_size) / float(total_size) * 100.0))
+    sys.stdout.flush()
+
+  if not tf.gfile.Exists(filepath):
+    filepath, _ = urllib.request.urlretrieve(zip_url, filepath, _progress)
+    print()
+    statinfo = os.stat(filepath)
+    print('Successfully downloaded', filename, statinfo.st_size, 'bytes.')
+  
+  print('Uncompressing file {} ...'.format(filepath))
+  with zipfile.ZipFile(filepath, 'r') as zip_ref:
+    zip_ref.extractall(dataset_dir)
+  # zipfile.open(filepath, 'r:*').extractall(dataset_dir)
 
 def download_file(url, file_path):
   """ Download a file from the given URL to a path """

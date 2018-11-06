@@ -43,7 +43,7 @@ def main(_):
       fig, ax = plt.subplots()
       ax.imshow(np_image)
       ax.set_title(dataset.labels_to_names[np_label])
-      fig.savefig(os.path.join(FLAGS.dumpdir, 'flowers102_example_{:03d}.pdf'.format(i)))
+      fig.savefig(os.path.join(FLAGS.dumpdir, '{}_example_{:03d}.pdf'.format(FLAGS.dataset_name, i)))
       plt.close(fig)
 
     coord.request_stop()

@@ -25,6 +25,7 @@ from datasets import mnist
 from datasets import birds
 from datasets import flowers102
 from datasets import indoor67
+from datasets import actions40
 
 datasets_map = {
     'cifar10': cifar10,
@@ -34,6 +35,7 @@ datasets_map = {
     'imagenet': imagenet,
     'mnist': mnist,
     'birds': birds,
+    'actions40': actions40,
 }
 
 
