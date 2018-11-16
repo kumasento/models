@@ -34,26 +34,25 @@ import sys
 import glob
 
 from PIL import Image
+import scipy.io
 import tensorflow as tf
 
 from datasets import dataset_utils
 
-# The URL where the Flowers data can be downloaded.
-_DATA_URL = 'http://groups.csail.mit.edu/vision/LabelMe/NewImages/indoorCVPR_09.tar'
-_TARBALL_FILE = 'indoorCVPR_09.tar'
-_TRAIN_IMAGES_URL = 'http://web.mit.edu/torralba/www/TrainImages.txt'
-_TEST_IMAGES_URL = 'http://web.mit.edu/torralba/www/TestImages.txt'
+# The URL where the data can be downloaded.
+_DATA_URL = 'http://vision.stanford.edu/aditya86/ImageNetDogs/images.tar'
+_ANNOTATION_URL = 'http://vision.stanford.edu/aditya86/ImageNetDogs/annotation.tar'
+_SPLIT_URL = 'http://vision.stanford.edu/aditya86/ImageNetDogs/lists.tar'
 
 # Seed for repeatability.
 _RANDOM_SEED = 0
 
 # The number of shards per dataset split.
-_NUM_SHARDS = 5
+_NUM_SHARDS = 10
 
-_NUM_IMAGES = 15620
-_NUM_TRAIN_TEST_IMAGES = 6700
+_NUM_IMAGES = 20580
 
-_NUM_CLASSES = 67
+_NUM_CLASSES = 120
 
 
 class ImageReader(object):
@@ -94,7 +93,8 @@ def _get_filenames_and_classes(dataset_dir):
     path = os.path.join(images_root, filename)
     if os.path.isdir(path):
       directories.append(path)
-      class_names.append(filename)
+      class_name = '-'.join(filename.split('-')[1:])
+      class_names.append(class_name)
 
   photo_filenames = []
   for directory in directories:
@@ -105,24 +105,27 @@ def _get_filenames_and_classes(dataset_dir):
   return photo_filenames, sorted(class_names)
 
 
+def _get_class_name(filename):
+  return '-'.join(filename.split('-')[1:])
+
+
 def _get_dataset_filename(dataset_dir, split_name, shard_id):
-  output_filename = 'indoor67_%s_%05d-of-%05d.tfrecord' % (
+  output_filename = 'actions40_%s_%05d-of-%05d.tfrecord' % (
       split_name, shard_id, _NUM_SHARDS)
   return os.path.join(dataset_dir, output_filename)
 
 
 def _preprocess_images(filenames):
   """ preprocess every file to unify their format to JPEG """
-  formats_for_convert = ['bmp', 'BMP', 'gif', 'GIF']
   for i in range(len(filenames)):
     # if i % 100 == 0:
     #   print('Preprocessing file %05d/%05d ....' % (i, len(filenames)))
-    for img_fmt in formats_for_convert:
-      if img_fmt in filenames[i]:
-        img = Image.open(filenames[i])
-        img = img.convert('RGB')
-        img.save(filenames[i], 'jpeg')
-        break
+    if 'gif' in filenames[i]:
+      continue
+    if 'bmp' in filenames[i] or 'BMP' in filenames[i]:
+      img = Image.open(filenames[i])
+      img = img.convert('RGB')
+      img.save(filenames[i], 'jpeg')
 
 
 def _convert_dataset(split_name, filenames, class_names_to_ids, dataset_dir):
@@ -160,7 +163,7 @@ def _convert_dataset(split_name, filenames, class_names_to_ids, dataset_dir):
             image_data = tf.gfile.FastGFile(filenames[i], 'rb').read()
             height, width = image_reader.read_image_dims(sess, image_data)
 
-            class_name = os.path.basename(os.path.dirname(filenames[i]))
+            class_name = _get_class_name(filenames[i].split('/')[-2])
             class_id = class_names_to_ids[class_name]
 
             example = dataset_utils.image_to_tfexample(
@@ -199,7 +202,8 @@ def _is_uncompressed(dataset_dir):
   if not tf.gfile.Exists(os.path.join(dataset_dir, 'Images')):
     return False
 
-  image_files = glob.glob(os.path.join(dataset_dir, 'Images', '**', '*'))
+  image_files = glob.glob(
+      os.path.join(dataset_dir, 'Images', '**', '*.jpg'))
   return len(image_files) == _NUM_IMAGES
 
 
@@ -221,36 +225,39 @@ def run(dataset_dir):
     return
 
   if not _is_uncompressed(dataset_dir):
-    dataset_utils.download_and_uncompress_tarball(
-        _DATA_URL, dataset_dir)
+    dataset_utils.download_and_uncompress_tarball(_DATA_URL, dataset_dir)
+    dataset_utils.download_and_uncompress_tarball(_SPLIT_URL, dataset_dir)
+    dataset_utils.download_and_uncompress_tarball(_ANNOTATION_URL, dataset_dir)
 
-  train_images_path = os.path.join(dataset_dir, 'train_images.txt')
-  test_images_path = os.path.join(dataset_dir, 'test_images.txt')
-
-  dataset_utils.download_file(_TRAIN_IMAGES_URL, train_images_path)
-  dataset_utils.download_file(_TEST_IMAGES_URL, test_images_path)
+  # dataset_utils.download_file(_TRAIN_IMAGES_URL, train_images_path)
+  # dataset_utils.download_file(_TEST_IMAGES_URL, test_images_path)
 
   photo_filenames, class_names = _get_filenames_and_classes(dataset_dir)
   class_names_to_ids = dict(zip(class_names, range(len(class_names))))
 
   assert len(photo_filenames) == _NUM_IMAGES
   assert len(class_names) == _NUM_CLASSES
+  print(class_names)
 
-  _preprocess_images(photo_filenames)
+  # _preprocess_images(photo_filenames)
 
   # Divide into train and test:
   # random.seed(_RANDOM_SEED)
   # random.shuffle(photo_filenames)
   # training_filenames = photo_filenames[_NUM_VALIDATION:]
   # validation_filenames = photo_filenames[:_NUM_VALIDATION]
-  with open(train_images_path, 'r') as f:
-    train_images = {x.strip(): None for x in f.readlines()}
-  with open(test_images_path, 'r') as f:
-    test_images = {x.strip(): None for x in f.readlines()}
+
+  train_images_path = os.path.join(dataset_dir, 'train_list.mat')
+  test_images_path = os.path.join(dataset_dir, 'test_list.mat')
+
+  train_images = scipy.io.loadmat(train_images_path)['file_list']
+  test_images = scipy.io.loadmat(test_images_path)['file_list']
+  train_images = {x[0][0]: None for x in train_images}
+  test_images = {x[0][0]: None for x in test_images}
 
   print('Number of training images: {}'.format(len(train_images)))
   print('Number of test images: {}'.format(len(test_images)))
-  assert len(train_images) + len(test_images) == _NUM_TRAIN_TEST_IMAGES
+  assert len(train_images) + len(test_images) == _NUM_IMAGES
 
   # TODO this is so fucking slow
   training_filenames = [name for name in photo_filenames
@@ -260,15 +267,15 @@ def run(dataset_dir):
   assert len(training_filenames) == len(train_images)
   assert len(validation_filenames) == len(test_images)
 
-  # # First, convert the training and validation sets.
-  _convert_dataset('train', training_filenames, class_names_to_ids,
-                   dataset_dir)
-  _convert_dataset('validation', validation_filenames, class_names_to_ids,
-                   dataset_dir)
+  # First, convert the training and validation sets.
+  _convert_dataset('train', training_filenames,
+                   class_names_to_ids, dataset_dir)
+  _convert_dataset('validation', validation_filenames,
+                   class_names_to_ids, dataset_dir)
 
-  # # Finally, write the labels file:
+  # Finally, write the labels file:
   labels_to_class_names = dict(zip(range(len(class_names)), class_names))
   dataset_utils.write_label_file(labels_to_class_names, dataset_dir)
 
   # _clean_up_temporary_files(dataset_dir)
-  print('\nFinished converting the Indoor-67 dataset!')
+  print('\nFinished converting the Stanford Dogs dataset!')

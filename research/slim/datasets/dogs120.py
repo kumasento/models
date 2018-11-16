@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Provides data for the Cifar10 dataset.
+"""Provides data for the Stanford Dogs dataset.
 
 The dataset scripts used to create the dataset can be found at:
 tensorflow/models/research/slim/datasets/download_and_convert_cifar10.py
@@ -29,11 +29,11 @@ from datasets import dataset_utils
 
 slim = tf.contrib.slim
 
-_FILE_PATTERN = 'flowers102_%s_*.tfrecord'
+_FILE_PATTERN = 'dogs120_%s_*.tfrecord'
 
-SPLITS_TO_SIZES = {'train': 2040, 'validation': 6149}
+SPLITS_TO_SIZES = {'train': 12000, 'validation': 8580}
 
-_NUM_CLASSES = 102
+_NUM_CLASSES = 120
 
 _ITEMS_TO_DESCRIPTIONS = {
     'image': 'A color image.',

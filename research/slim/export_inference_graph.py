@@ -62,6 +62,9 @@ from tensorflow.python.platform import gfile
 from datasets import dataset_factory
 from nets import nets_factory
 
+from dokei import slim_utils
+from dokei.reg.proximal_config_generator import ProximalConfigGenerator
+from dokei.reg.layer_config_map_generator import LayerConfigMapGenerator
 
 slim = tf.contrib.slim
 
@@ -96,6 +99,10 @@ tf.app.flags.DEFINE_string(
 tf.app.flags.DEFINE_string(
     'dataset_dir', '', 'Directory to save intermediate dataset files to')
 
+# configure models
+tf.app.flags.DEFINE_string('layer_config_map', None,
+                           'Configuration file for LayerConfig')
+
 FLAGS = tf.app.flags.FLAGS
 
 
@@ -106,10 +113,18 @@ def main(_):
   with tf.Graph().as_default() as graph:
     dataset = dataset_factory.get_dataset(FLAGS.dataset_name, 'train',
                                           FLAGS.dataset_dir)
-    network_fn = nets_factory.get_network_fn(
+    # network_fn = nets_factory.get_network_fn(
+    #     FLAGS.model_name,
+    #     num_classes=(dataset.num_classes - FLAGS.labels_offset),
+    #     is_training=FLAGS.is_training)
+
+    network_fn = slim_utils.get_network_fn(
         FLAGS.model_name,
         num_classes=(dataset.num_classes - FLAGS.labels_offset),
-        is_training=FLAGS.is_training)
+        is_training=False,
+        layer_cfg_map=slim_utils.get_layer_config_map(
+            FLAGS.layer_config_map))
+
     image_size = FLAGS.image_size or network_fn.default_image_size
     placeholder = tf.placeholder(name='input', dtype=tf.float32,
                                  shape=[FLAGS.batch_size, image_size,

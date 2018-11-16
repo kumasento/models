@@ -11,7 +11,6 @@ from datasets import dataset_utils
 slim = tf.contrib.slim
 
 _FILE_PATTERN = 'birds_%s_*.tfrecord'
-
 SPLITS_TO_SIZES = {'train': 5994, 'test': 5794}
 
 _NUM_CLASSES = 200

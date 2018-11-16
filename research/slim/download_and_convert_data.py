@@ -42,6 +42,7 @@ from datasets import download_and_convert_mnist
 from datasets import download_and_convert_flowers102
 from datasets import download_and_convert_indoor67
 from datasets import download_and_convert_actions40
+from datasets import download_and_convert_dogs120
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -74,6 +75,8 @@ def main(_):
     download_and_convert_indoor67.run(FLAGS.dataset_dir)
   elif FLAGS.dataset_name == 'actions40':
     download_and_convert_actions40.run(FLAGS.dataset_dir)
+  elif FLAGS.dataset_name == 'dogs120':
+    download_and_convert_dogs120.run(FLAGS.dataset_dir)
   else:
     raise ValueError(
         'dataset_name [%s] was not recognized.' % FLAGS.dataset_name)

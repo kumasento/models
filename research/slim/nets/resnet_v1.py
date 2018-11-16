@@ -60,6 +60,7 @@ import tensorflow as tf
 
 from nets import resnet_utils
 
+from dokei.reg.layer_config import get_layer_fn_map
 
 resnet_arg_scope = resnet_utils.resnet_arg_scope
 slim = tf.contrib.slim
@@ -81,6 +82,7 @@ def bottleneck(inputs,
                depth_bottleneck,
                stride,
                rate=1,
+               layer_fn_map=None,
                outputs_collections=None,
                scope=None,
                use_bounded_activations=False):
@@ -108,24 +110,46 @@ def bottleneck(inputs,
   Returns:
     The ResNet unit's output.
   """
+  def get_conv2d_fn(scope):
+    if scope is None or layer_fn_map is None:
+      conv2d_fn = slim.conv2d
+    else:
+      # remove resnet_v1_xxx from the beginning
+      # the convention of layer_fn_map is using the rest of the scope
+
+      variable_scope = tf.get_variable_scope().name
+      full_scope = '{}/{}'.format(variable_scope, scope)
+      layer_fn_key = '/'.join(full_scope.split('/')[1:])
+      if layer_fn_key not in layer_fn_map:
+        print('Cannot find {} in layer_fn_map'.format(layer_fn_key))
+        conv2d_fn = slim.conv2d
+      else:  # only in this case we use the fn from layer_fn_map
+        print('Using provided layer_fn: {}'.format(layer_fn_key))
+        conv2d_fn = layer_fn_map[layer_fn_key]
+    return conv2d_fn
+
   with tf.variable_scope(scope, 'bottleneck_v1', [inputs]) as sc:
+    shortcut_fn = get_conv2d_fn('shortcut')
+    conv1_fn = get_conv2d_fn('conv1')
+    conv3_fn = get_conv2d_fn('conv3')
+
     depth_in = slim.utils.last_dimension(inputs.get_shape(), min_rank=4)
     if depth == depth_in:
       shortcut = resnet_utils.subsample(inputs, stride, 'shortcut')
     else:
-      shortcut = slim.conv2d(
+      shortcut = shortcut_fn(
           inputs,
           depth, [1, 1],
           stride=stride,
           activation_fn=tf.nn.relu6 if use_bounded_activations else None,
           scope='shortcut')
 
-    residual = slim.conv2d(inputs, depth_bottleneck, [1, 1], stride=1,
-                           scope='conv1')
+    residual = conv1_fn(inputs, depth_bottleneck, [1, 1], stride=1,
+                        scope='conv1')
     residual = resnet_utils.conv2d_same(residual, depth_bottleneck, 3, stride,
-                                        rate=rate, scope='conv2')
-    residual = slim.conv2d(residual, depth, [1, 1], stride=1,
-                           activation_fn=None, scope='conv3')
+                                        layer_fn_map=layer_fn_map, rate=rate, scope='conv2')
+    residual = conv3_fn(residual, depth, [1, 1], stride=1,
+                        activation_fn=None, scope='conv3')
 
     if use_bounded_activations:
       # Use clip_by_value to simulate bandpass activation.
@@ -252,10 +276,12 @@ def resnet_v1(inputs,
             end_points[sc.name + '/spatial_squeeze'] = net
           end_points['predictions'] = slim.softmax(net, scope='predictions')
         return net, end_points
+
+
 resnet_v1.default_image_size = 224
 
 
-def resnet_v1_block(scope, base_depth, num_units, stride):
+def resnet_v1_block(scope, base_depth, num_units, stride, layer_fn_map=None):
   """Helper function for creating a resnet_v1 bottleneck block.
 
   Args:
@@ -271,11 +297,13 @@ def resnet_v1_block(scope, base_depth, num_units, stride):
   return resnet_utils.Block(scope, bottleneck, [{
       'depth': base_depth * 4,
       'depth_bottleneck': base_depth,
-      'stride': 1
+      'stride': 1,
+      'layer_fn_map': layer_fn_map,
   }] * (num_units - 1) + [{
       'depth': base_depth * 4,
       'depth_bottleneck': base_depth,
-      'stride': stride
+      'stride': stride,
+      'layer_fn_map': layer_fn_map,
   }])
 
 
@@ -287,19 +315,31 @@ def resnet_v1_50(inputs,
                  spatial_squeeze=True,
                  store_non_strided_activations=False,
                  reuse=None,
+                 layer_cfg_map=None,
                  scope='resnet_v1_50'):
   """ResNet-50 model of [1]. See resnet_v1() for arg and return description."""
+  # Say something about the received
+  if layer_cfg_map is not None:
+    print('Recevied layer_cfg for ResNet-50: {}'.format(layer_cfg_map))
+
+  layer_fn_map = get_layer_fn_map(layer_cfg_map, assign_scope=False)
   blocks = [
-      resnet_v1_block('block1', base_depth=64, num_units=3, stride=2),
-      resnet_v1_block('block2', base_depth=128, num_units=4, stride=2),
-      resnet_v1_block('block3', base_depth=256, num_units=6, stride=2),
-      resnet_v1_block('block4', base_depth=512, num_units=3, stride=1),
+      resnet_v1_block('block1', base_depth=64, num_units=3,
+                      stride=2, layer_fn_map=layer_fn_map),
+      resnet_v1_block('block2', base_depth=128, num_units=4,
+                      stride=2, layer_fn_map=layer_fn_map),
+      resnet_v1_block('block3', base_depth=256, num_units=6,
+                      stride=2, layer_fn_map=layer_fn_map),
+      resnet_v1_block('block4', base_depth=512, num_units=3,
+                      stride=1, layer_fn_map=layer_fn_map),
   ]
   return resnet_v1(inputs, blocks, num_classes, is_training,
                    global_pool=global_pool, output_stride=output_stride,
                    include_root_block=True, spatial_squeeze=spatial_squeeze,
                    store_non_strided_activations=store_non_strided_activations,
                    reuse=reuse, scope=scope)
+
+
 resnet_v1_50.default_image_size = resnet_v1.default_image_size
 
 
@@ -324,6 +364,8 @@ def resnet_v1_101(inputs,
                    include_root_block=True, spatial_squeeze=spatial_squeeze,
                    store_non_strided_activations=store_non_strided_activations,
                    reuse=reuse, scope=scope)
+
+
 resnet_v1_101.default_image_size = resnet_v1.default_image_size
 
 
@@ -348,6 +390,8 @@ def resnet_v1_152(inputs,
                    include_root_block=True, spatial_squeeze=spatial_squeeze,
                    store_non_strided_activations=store_non_strided_activations,
                    reuse=reuse, scope=scope)
+
+
 resnet_v1_152.default_image_size = resnet_v1.default_image_size
 
 
@@ -372,4 +416,6 @@ def resnet_v1_200(inputs,
                    include_root_block=True, spatial_squeeze=spatial_squeeze,
                    store_non_strided_activations=store_non_strided_activations,
                    reuse=reuse, scope=scope)
+
+
 resnet_v1_200.default_image_size = resnet_v1.default_image_size

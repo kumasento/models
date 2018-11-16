@@ -15,6 +15,10 @@ tf.app.flags.DEFINE_string(
     'dataset_split_name', 'train', 'The name of the train/test split.')
 tf.app.flags.DEFINE_string(
     'dataset_dir', None, 'The directory where the dataset files are stored.')
+tf.app.flags.DEFINE_boolean(
+    'dump_image', False, 'The directory where the dataset files are stored.')
+tf.app.flags.DEFINE_integer('num_samples', 10, 'Number of test samples')
+
 FLAGS = tf.app.flags.FLAGS
 
 
@@ -37,14 +41,19 @@ def main(_):
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(coord = coord)
 
-    for i in range(10):
-      np_image, np_label = sess.run([image, label])
+    for i in range(FLAGS.num_samples):
+      if i % 100 == 0:
+        print("Checking step {:5d} ...".format(i))
 
-      fig, ax = plt.subplots()
-      ax.imshow(np_image)
-      ax.set_title(dataset.labels_to_names[np_label])
-      fig.savefig(os.path.join(FLAGS.dumpdir, '{}_example_{:03d}.pdf'.format(FLAGS.dataset_name, i)))
-      plt.close(fig)
+      np_image, np_label = sess.run([image, label])
+      if len(np_image.shape) != 3 or FLAGS.dump_image:
+        np_image = np_image[0] if len(np_image.shape) != 3 else np_image
+        fig, ax = plt.subplots()
+        ax.imshow(np_image)
+        ax.set_title(dataset.labels_to_names[np_label])
+        fig.savefig(os.path.join(
+          FLAGS.dumpdir, '{}_example_{:03d}.pdf'.format(FLAGS.dataset_name, i)))
+        plt.close(fig)
 
     coord.request_stop()
     coord.join(threads)

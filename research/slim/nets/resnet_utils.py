@@ -42,6 +42,8 @@ import tensorflow as tf
 
 slim = tf.contrib.slim
 
+from dokei.reg.layer_config import get_layer_fn_map
+
 
 class Block(collections.namedtuple('Block', ['scope', 'unit_fn', 'args'])):
   """A named tuple describing a ResNet block.
@@ -74,7 +76,8 @@ def subsample(inputs, factor, scope=None):
     return slim.max_pool2d(inputs, [1, 1], stride=factor, scope=scope)
 
 
-def conv2d_same(inputs, num_outputs, kernel_size, stride, rate=1, scope=None):
+def conv2d_same(inputs, num_outputs, kernel_size, stride,
+                layer_fn_map=None, rate=1, scope=None):
   """Strided 2-D convolution with 'SAME' padding.
 
   When stride > 1, then we do explicit zero-padding, followed by conv2d with
@@ -108,9 +111,27 @@ def conv2d_same(inputs, num_outputs, kernel_size, stride, rate=1, scope=None):
     output: A 4-D tensor of size [batch, height_out, width_out, channels] with
       the convolution output.
   """
+
+  # try to find the functor in the layer_fn_map
+  if scope is None or layer_fn_map is None:
+    conv2d_fn = slim.conv2d
+  else:
+    # remove resnet_v1_xxx from the beginning
+    # the convention of layer_fn_map is using the rest of the scope
+
+    variable_scope = tf.get_variable_scope().name
+    full_scope = '{}/{}'.format(variable_scope, scope)
+    layer_fn_key = '/'.join(full_scope.split('/')[1:])
+    if layer_fn_key not in layer_fn_map:
+      print('Cannot find {} in layer_fn_map'.format(layer_fn_key))
+      conv2d_fn = slim.conv2d
+    else: # only in this case we use the fn from layer_fn_map
+      print('Using provided layer_fn: {}'.format(layer_fn_key))
+      conv2d_fn = layer_fn_map[layer_fn_key]
+
   if stride == 1:
-    return slim.conv2d(inputs, num_outputs, kernel_size, stride=1, rate=rate,
-                       padding='SAME', scope=scope)
+    return conv2d_fn(inputs, num_outputs, kernel_size, stride=1, rate=rate,
+                     padding='SAME', scope=scope)
   else:
     kernel_size_effective = kernel_size + (kernel_size - 1) * (rate - 1)
     pad_total = kernel_size_effective - 1
@@ -118,12 +139,13 @@ def conv2d_same(inputs, num_outputs, kernel_size, stride, rate=1, scope=None):
     pad_end = pad_total - pad_beg
     inputs = tf.pad(inputs,
                     [[0, 0], [pad_beg, pad_end], [pad_beg, pad_end], [0, 0]])
-    return slim.conv2d(inputs, num_outputs, kernel_size, stride=stride,
-                       rate=rate, padding='VALID', scope=scope)
+    return conv2d_fn(inputs, num_outputs, kernel_size, stride=stride,
+                     rate=rate, padding='VALID', scope=scope)
 
 
 @slim.add_arg_scope
 def stack_blocks_dense(net, blocks, output_stride=None,
+                       layer_fn_map=None,
                        store_non_strided_activations=False,
                        outputs_collections=None):
   """Stacks ResNet `Blocks` and controls output feature density.
@@ -263,7 +285,7 @@ def resnet_arg_scope(weight_decay=0.0001,
       weights_initializer=slim.variance_scaling_initializer(),
       activation_fn=activation_fn,
       normalizer_fn=slim.batch_norm if use_batch_norm else None,
-      normalizer_params=batch_norm_params):
+          normalizer_params=batch_norm_params):
     with slim.arg_scope([slim.batch_norm], **batch_norm_params):
       # The following implies padding='SAME' for pool1, which makes feature
       # alignment easier for dense prediction tasks. This is also used in
