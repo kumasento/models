@@ -43,6 +43,7 @@ import tensorflow as tf
 slim = tf.contrib.slim
 
 from dokei.reg.layer_config import get_layer_fn_map
+from dokei.ops.conv2d import grouped_conv2d
 
 
 class Block(collections.namedtuple('Block', ['scope', 'unit_fn', 'args'])):
@@ -280,7 +281,7 @@ def resnet_arg_scope(weight_decay=0.0001,
   }
 
   with slim.arg_scope(
-      [slim.conv2d],
+      [slim.conv2d, grouped_conv2d],
       weights_regularizer=slim.l2_regularizer(weight_decay),
       weights_initializer=slim.variance_scaling_initializer(),
       activation_fn=activation_fn,
